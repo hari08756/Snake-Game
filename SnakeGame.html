@@ -379,44 +379,61 @@
   </div>
 
   <script>
+    // ============================================
+    // GAME INITIALIZATION AND CONFIGURATION
+    // ============================================
+    
+    // Get canvas and context for drawing
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-    const GRID_SIZE = 20;
-    const GRID_WIDTH = canvas.width / GRID_SIZE;
-    const GRID_HEIGHT = canvas.height / GRID_SIZE;
-
-    let snake = [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 3, y: 5 }];
-    let direction = "right";
-    let nextDirection = "right";
-    let food = {};
-    let score = 0;
-    let highScore = 0;
-    let gameScores = [];
-    let gameLoop;
-    let speed = 150;
-    let gameRunning = false;
-    let gamePaused = false;
-
-    let specialFood = null;
-    let specialFoodTimer = 0;
-    let lastSpecialSpawn = Date.now();
-
+    
+    // Game configuration constants
+    const GRID_SIZE = 20; // Size of each grid cell in pixels
+    const GRID_WIDTH = canvas.width / GRID_SIZE; // Number of horizontal grid cells
+    const GRID_HEIGHT = canvas.height / GRID_SIZE; // Number of vertical grid cells
+    
+    // Game state variables
+    let snake = [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 3, y: 5 }]; // Initial snake position
+    let direction = "right"; // Current direction of movement
+    let nextDirection = "right"; // Next direction to prevent 180° turns
+    let food = {}; // Regular food position
+    let score = 0; // Current score
+    let highScore = 0; // Highest score achieved
+    let gameScores = []; // Array to store recent scores for average calculation
+    let gameLoop; // Reference to the game interval
+    let speed = 150; // Game speed in milliseconds (lower = faster)
+    let gameRunning = false; // Whether the game is currently running
+    let gamePaused = false; // Whether the game is paused
+    
+    // Special food variables
+    let specialFood = null; // Special food object (position, type, color)
+    let specialFoodTimer = 0; // Timer for special food duration
+    let lastSpecialSpawn = Date.now(); // Timestamp of last special food spawn
+    
+    // DOM element references
     const currentScoreEl = document.getElementById("currentScore");
     const highScoreEl = document.getElementById("highScore");
     const averageScoreEl = document.getElementById("averageScore");
     const gameOverEl = document.getElementById("game-over");
-
-    // Create gradient for snake
+    
+    // Create gradient for snake visual effect
     const snakeGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
     snakeGradient.addColorStop(0, "#00ff99");
     snakeGradient.addColorStop(1, "#00cc88");
-
+    
+    // ============================================
+    // GAME RENDERING FUNCTIONS
+    // ============================================
+    
+    /**
+     * Draws the entire game state including background, grid, snake, and food
+     */
     function draw() {
       // Draw background with subtle grid
       ctx.fillStyle = "#0a0a0a";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Draw grid
+      // Draw grid lines for visual reference
       ctx.strokeStyle = "rgba(0, 255, 204, 0.05)";
       ctx.lineWidth = 0.5;
       for (let x = 0; x <= canvas.width; x += GRID_SIZE) {
@@ -431,28 +448,29 @@
         ctx.lineTo(canvas.width, y);
         ctx.stroke();
       }
-
-      // Snake
+    
+      // Draw snake segments
       snake.forEach((segment, i) => {
         if (i === 0) {
-          // Snake head with gradient
+          // Snake head with gradient and glow effect
           ctx.fillStyle = snakeGradient;
           ctx.shadowBlur = 15;
           ctx.shadowColor = "#00ffcc";
         } else {
-          // Snake body
+          // Snake body with solid color and smaller glow
           ctx.fillStyle = "#00cc88";
           ctx.shadowBlur = 8;
           ctx.shadowColor = "#00cc88";
         }
         
+        // Draw rounded rectangle for snake segment
         ctx.beginPath();
         ctx.roundRect(segment.x * GRID_SIZE, segment.y * GRID_SIZE, GRID_SIZE, GRID_SIZE, 4);
         ctx.fill();
       });
-      ctx.shadowBlur = 0;
-
-      // Regular food
+      ctx.shadowBlur = 0; // Reset shadow after drawing snake
+    
+      // Draw regular food with glow effect
       ctx.fillStyle = "#ff3366";
       ctx.shadowBlur = 10;
       ctx.shadowColor = "#ff3366";
@@ -460,8 +478,8 @@
       ctx.arc(food.x * GRID_SIZE + GRID_SIZE / 2, food.y * GRID_SIZE + GRID_SIZE / 2, GRID_SIZE / 2 - 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
-
-      // Special food
+    
+      // Draw special food if it exists
       if (specialFood) {
         ctx.fillStyle = specialFood.color;
         ctx.shadowBlur = 12;
@@ -481,18 +499,29 @@
         ctx.globalAlpha = 1.0;
       }
     }
-
+    
+    // ============================================
+    // GAME LOGIC FUNCTIONS
+    // ============================================
+    
+    /**
+     * Updates the game state - moves snake, checks collisions, handles food
+     */
     function update() {
+      // Don't update if game is paused
       if (gamePaused) return;
-
+    
+      // Create new head position based on current direction
       const head = { ...snake[0] };
       direction = nextDirection;
+      
+      // Move head in the current direction
       if (direction === "up") head.y -= 1;
       else if (direction === "down") head.y += 1;
       else if (direction === "left") head.x -= 1;
       else if (direction === "right") head.x += 1;
-
-      // Collision with walls or self
+    
+      // Check for collision with walls or self
       if (
         head.x < 0 || head.x >= GRID_WIDTH ||
         head.y < 0 || head.y >= GRID_HEIGHT ||
@@ -501,52 +530,80 @@
         gameOver();
         return;
       }
-
+    
+      // Add new head to snake
       snake.unshift(head);
-
-      // Eating food
+    
+      // Check if snake ate regular food
       if (head.x === food.x && head.y === food.y) {
         score += 1;
         createFood();
-      } else if (specialFood && head.x === specialFood.x && head.y === specialFood.y) {
+      } 
+      // Check if snake ate special food
+      else if (specialFood && head.x === specialFood.x && head.y === specialFood.y) {
         applySpecialEffect(specialFood.type);
         specialFood = null;
-      } else {
+      } 
+      // If no food was eaten, remove tail segment
+      else {
         snake.pop();
       }
-
-      // Special food logic
+    
+      // Special food spawning logic
       if (!specialFood && Date.now() - lastSpecialSpawn > 10000) {
         createSpecialFood();
         lastSpecialSpawn = Date.now();
       }
+      
+      // Special food expiration (disappears after 5 seconds)
       if (specialFood && Date.now() - specialFoodTimer > 5000) {
         specialFood = null;
       }
-
+    
+      // Update score display
       currentScoreEl.textContent = score;
+      
+      // Redraw the game
       draw();
     }
-
+    
+    /**
+     * Creates new regular food at a random position not occupied by the snake
+     */
     function createFood() {
       let valid = false;
       while (!valid) {
         const x = Math.floor(Math.random() * GRID_WIDTH);
         const y = Math.floor(Math.random() * GRID_HEIGHT);
+        
+        // Ensure food doesn't spawn on snake
         if (!snake.some(seg => seg.x === x && seg.y === y)) {
           food = { x, y };
           valid = true;
         }
       }
     }
-
+    
+    /**
+     * Creates special food with random type at a valid position
+     */
     function createSpecialFood() {
       const types = ["gold", "slow", "shrink", "boost"];
-      const colors = { gold: "#ffd700", slow: "#3399ff", shrink: "#66ff66", boost: "#ff6600" };
+      const colors = { 
+        gold: "#ffd700", 
+        slow: "#3399ff", 
+        shrink: "#66ff66", 
+        boost: "#ff6600" 
+      };
+      
       const type = types[Math.floor(Math.random() * types.length)];
+      
+      // Try to find a valid position for special food
       for (let i = 0; i < 50; i++) {
         const x = Math.floor(Math.random() * GRID_WIDTH);
         const y = Math.floor(Math.random() * GRID_HEIGHT);
+        
+        // Ensure special food doesn't spawn on snake or regular food
         if (!snake.some(seg => seg.x === x && seg.y === y) && (food.x !== x || food.y !== y)) {
           specialFood = { x, y, type, color: colors[type] };
           specialFoodTimer = Date.now();
@@ -554,34 +611,50 @@
         }
       }
     }
-
+    
+    /**
+     * Applies effect based on special food type
+     * @param {string} type - The type of special effect to apply
+     */
     function applySpecialEffect(type) {
+      // Gold food: +5 points
       if (type === "gold") {
         score += 5;
-        // Visual effect
+        
+        // Visual feedback for gold effect
         ctx.fillStyle = "#ffd700";
         ctx.font = "bold 24px Arial";
         ctx.textAlign = "center";
         ctx.fillText("+5", canvas.width / 2, canvas.height / 2);
         setTimeout(() => draw(), 300);
       }
+      
+      // Slow food: temporarily reduces game speed
       if (type === "slow") {
         clearInterval(gameLoop);
         speed = 250;
         gameLoop = setInterval(update, speed);
+        
+        // Reset speed after 3 seconds
         setTimeout(() => {
           clearInterval(gameLoop);
           speed = 150;
           gameLoop = setInterval(update, speed);
         }, 3000);
       }
+      
+      // Shrink food: reduces snake length (minimum 3 segments)
       if (type === "shrink" && snake.length > 3) {
         snake.splice(-2);
       }
+      
+      // Boost food: temporarily increases game speed
       if (type === "boost") {
         clearInterval(gameLoop);
         speed = 75;
         gameLoop = setInterval(update, speed);
+        
+        // Reset speed after 3 seconds
         setTimeout(() => {
           clearInterval(gameLoop);
           speed = 150;
@@ -589,57 +662,96 @@
         }, 3000);
       }
     }
-
+    
+    /**
+     * Handles game over state, saves scores, and updates statistics
+     */
     function gameOver() {
       gameRunning = false;
       clearInterval(gameLoop);
       gameOverEl.style.display = "block";
-
-      // Save high score
+    
+      // Save high score to localStorage if current score is higher
       let savedHigh = localStorage.getItem("snakeHighScore") || 0;
       if (score > savedHigh) {
         localStorage.setItem("snakeHighScore", score);
       }
-
-      // Save average score
+    
+      // Save recent scores for average calculation
       let scores = JSON.parse(localStorage.getItem("snakeScores")) || [];
       scores.push(score);
+      
+      // Keep only the 5 most recent scores
       if (scores.length > 5) scores.shift();
+      
       localStorage.setItem("snakeScores", JSON.stringify(scores));
       updateStats();
     }
-
+    
+    /**
+     * Updates score statistics from localStorage
+     */
     function updateStats() {
       highScore = localStorage.getItem("snakeHighScore") || 0;
       gameScores = JSON.parse(localStorage.getItem("snakeScores")) || [];
       highScoreEl.textContent = highScore;
-
+    
+      // Calculate average score from recent games
       const avg = gameScores.length
         ? Math.floor(gameScores.reduce((a, b) => a + b, 0) / gameScores.length)
         : 0;
       averageScoreEl.textContent = avg;
     }
-
+    
+    /**
+     * Initializes/resets the game to starting state
+     */
     function initGame() {
+      // Reset game state
       snake = [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 3, y: 5 }];
       direction = nextDirection = "right";
       score = 0;
       speed = 150;
       specialFood = null;
       specialFoodTimer = 0;
+      
+      // Reset UI elements
       gameOverEl.style.display = "none";
+      
+      // Initialize game elements
       createFood();
       updateStats();
+      
+      // Set game state flags
       gameRunning = true;
       gamePaused = false;
+      
+      // Start game loop
       clearInterval(gameLoop);
       gameLoop = setInterval(update, speed);
     }
-
+    
+    // ============================================
+    // INPUT HANDLING
+    // ============================================
+    
     // Keyboard controls
     document.addEventListener("keydown", e => {
-      const dir = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" }[e.key];
+      // Map arrow keys to directions
+      const dir = { 
+        ArrowUp: "up", 
+        ArrowDown: "down", 
+        ArrowLeft: "left", 
+        ArrowRight: "right",
+        // Add WASD support as well
+        w: "up", 
+        s: "down", 
+        a: "left", 
+        d: "right"
+      }[e.key];
+      
       if (dir) {
+        // Prevent 180° turns (snake can't immediately reverse direction)
         if (
           (dir === "up" && direction !== "down") ||
           (dir === "down" && direction !== "up") ||
@@ -649,25 +761,39 @@
           nextDirection = dir;
         }
       }
+      
+      // Space bar to pause/resume
+      if (e.key === " " && gameRunning) {
+        gamePaused = !gamePaused;
+        document.getElementById("pause-btn").textContent = gamePaused ? "▶ RESUME" : "⏸ PAUSE";
+        e.preventDefault(); // Prevent space from scrolling the page
+      }
+      
+      // Enter key to start new game if not running
+      if (e.key === "Enter" && !gameRunning) {
+        initGame();
+      }
     });
-
-    // Button controls
+    
+    // Start button handler
     document.getElementById("start-btn").addEventListener("click", () => {
       if (!gameRunning) initGame();
     });
-
+    
+    // Pause button handler
     document.getElementById("pause-btn").addEventListener("click", () => {
       if (gameRunning) {
         gamePaused = !gamePaused;
         document.getElementById("pause-btn").textContent = gamePaused ? "▶ RESUME" : "⏸ PAUSE";
       }
     });
-
+    
     // Touch direction buttons
     document.querySelectorAll(".d-pad-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         if (!gameRunning || gamePaused) return;
         
+        // Map button text to direction
         const dir = {
           "↑": "up", 
           "←": "left", 
@@ -676,6 +802,7 @@
         }[btn.textContent];
         
         if (dir) {
+          // Prevent 180° turns
           if (
             (dir === "up" && direction !== "down") ||
             (dir === "down" && direction !== "up") ||
@@ -687,12 +814,12 @@
         }
       });
     });
-
+    
     // Enhanced Touch Swipe Controls
     let touchStartX = 0;
     let touchStartY = 0;
-    const minSwipeDistance = 30;
-
+    const minSwipeDistance = 30; // Minimum distance in pixels to register as a swipe
+    
     canvas.addEventListener('touchstart', function (e) {
       if (!gameRunning || gamePaused) return;
       
@@ -701,11 +828,11 @@
       touchStartY = touch.clientY;
       e.preventDefault();
     }, { passive: false });
-
+    
     canvas.addEventListener('touchmove', function (e) {
-      e.preventDefault();
+      e.preventDefault(); // Prevent default to avoid scrolling
     }, { passive: false });
-
+    
     canvas.addEventListener('touchend', function (e) {
       if (!gameRunning || gamePaused) return;
       
@@ -713,19 +840,29 @@
       const dx = touch.clientX - touchStartX;
       const dy = touch.clientY - touchStartY;
       
+      // Ignore small movements (not a deliberate swipe)
       if (Math.abs(dx) < minSwipeDistance && Math.abs(dy) < minSwipeDistance) return;
       
+      // Determine primary swipe direction
       if (Math.abs(dx) > Math.abs(dy)) {
+        // Horizontal swipe
         if (dx > 0 && direction !== "left") nextDirection = "right";
         else if (dx < 0 && direction !== "right") nextDirection = "left";
       } else {
+        // Vertical swipe
         if (dy > 0 && direction !== "up") nextDirection = "down";
         else if (dy < 0 && direction !== "down") nextDirection = "up";
       }
       e.preventDefault();
     }, { passive: false });
-
-    // Add rounded rectangle function to canvas context
+    
+    // ============================================
+    // UTILITY FUNCTIONS
+    // ============================================
+    
+    /**
+     * Adds rounded rectangle drawing capability to canvas context
+     */
     CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
       if (w < 2 * r) r = w / 2;
       if (h < 2 * r) r = h / 2;
@@ -738,8 +875,12 @@
       this.closePath();
       return this;
     }
-
-    // Initialize game visuals
+    
+    // ============================================
+    // INITIAL SETUP
+    // ============================================
+    
+    // Initialize game visuals and statistics
     updateStats();
     createFood();
     draw();
