@@ -734,7 +734,7 @@
     // ============================================
     // INPUT HANDLING
     // ============================================
-    /*
+    
     // Keyboard controls
     document.addEventListener("keydown", e => {
       // Map arrow keys to directions
@@ -761,7 +761,7 @@
           nextDirection = dir;
         }
       }
-      */
+      
       
       // Space bar to pause/resume
       if (e.key === " " && gameRunning) {
@@ -793,7 +793,7 @@
     document.querySelectorAll(".d-pad-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         if (!gameRunning || gamePaused) return;
-        
+        /*
         // Map button text to direction
         const dir = {
           "↑": "up", 
@@ -813,6 +813,7 @@
             nextDirection = dir;
           }
         }
+        */
       });
     });
     
